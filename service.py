@@ -324,7 +324,7 @@ def initialize_driver(headless: bool = True):
         raise
 
 
-def get_squash_court_times(driver, preferred_day: int, timeout: int = 30):
+def get_squash_court_times(driver, preferred_day: int, timeout: int = 20):
     """
     Navigate to the Caversam Park booking page, click on "Squash Court", 
     select the preferred date, and return all available time slots.
@@ -343,111 +343,106 @@ def get_squash_court_times(driver, preferred_day: int, timeout: int = 30):
         url = "https://outlook.office365.com/book/CaversamParkVillageAssociationMilestoneCentre@cpva.org.uk/?ismsaljsauthenabled=true"
         driver.get(url)
         
-        # Wait for page to load
-        WebDriverWait(driver, timeout).until(
+        # Wait for page to load - reduced timeout for faster failure detection
+        WebDriverWait(driver, min(timeout, 15)).until(
             EC.presence_of_element_located((By.TAG_NAME, "body"))
         )
         
         print("Looking for 'Squash Court' button...")
-        # Look for "Squash Court" button/link - prioritize the working selector
-        squash_court_selectors = [
-            "//div[contains(text(), 'Squash Court')]",  # Known working selector
-            "//button[contains(text(), 'Squash Court')]",
-            "//a[contains(text(), 'Squash Court')]",
-            "//span[contains(text(), 'Squash Court')]",
-            "//*[contains(text(), 'Squash Court')]"
-        ]
-        
-        squash_court_element = None
-        for selector in squash_court_selectors:
-            try:
-                squash_court_element = WebDriverWait(driver, 5).until(
-                    EC.element_to_be_clickable((By.XPATH, selector))
-                )
-                print(f"Found 'Squash Court' element using selector: {selector}")
-                break
-            except TimeoutException:
-                continue
-        
-        if not squash_court_element:
-            print("Could not find 'Squash Court' element")
-            return None
+        # Use the known working selector first, with shorter timeout
+        try:
+            squash_court_element = WebDriverWait(driver, 8).until(
+                EC.element_to_be_clickable((By.XPATH, "//div[contains(text(), 'Squash Court')]"))
+            )
+            print("Found 'Squash Court' element")
+        except TimeoutException:
+            # Only try fallback selectors if the primary one fails
+            fallback_selectors = [
+                "//button[contains(text(), 'Squash Court')]",
+                "//a[contains(text(), 'Squash Court')]",
+                "//span[contains(text(), 'Squash Court')]",
+                "//*[contains(text(), 'Squash Court')]"
+            ]
+            
+            squash_court_element = None
+            for selector in fallback_selectors:
+                try:
+                    squash_court_element = WebDriverWait(driver, 3).until(
+                        EC.element_to_be_clickable((By.XPATH, selector))
+                    )
+                    print(f"Found 'Squash Court' element using fallback selector")
+                    break
+                except TimeoutException:
+                    continue
+            
+            if not squash_court_element:
+                print("Could not find 'Squash Court' element")
+                return None
         
         # Click on Squash Court
         print("Clicking on 'Squash Court'...")
         driver.execute_script("arguments[0].click();", squash_court_element)
         
-        # Wait a moment for any transitions
-        time.sleep(2)
+        # Reduced wait time after click
+        time.sleep(1)
         
         print(f"Looking for date picker and selecting day {preferred_day}...")
-        # Look for the date picker and select the preferred day
         try:
-            # Wait for the date picker to be present
-            date_picker = WebDriverWait(driver, timeout).until(
+            # Wait for the date picker with shorter timeout
+            date_picker = WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, 'div[aria-label="Date picker."]'))
             )
             print("Date picker found")
             
-            # Look for the date element with the preferred day
-            date_selector = f'div[aria-label="Date picker."] div[role="button"]:contains("{preferred_day}")'
-            
-            # Since CSS :contains() is not supported, use XPath instead
-            date_xpath_patterns = [
-                f'//div[@aria-label="Date picker."]//div[@role="button" and text()="{preferred_day}"]',
-                f'//div[@aria-label="Date picker."]//div[@role="button"][text()="{preferred_day}"]',
-                f'//div[contains(@aria-label, "Date picker")]//div[@role="button" and text()="{preferred_day}"]',
-                f'//div[contains(@aria-label, "Date picker")]//div[text()="{preferred_day}"]'
-            ]
-            
+            # Optimized date selection - use the most likely working pattern first
             date_element = None
-            successful_xpath = None
-            
-            for xpath in date_xpath_patterns:
-                try:
-                    date_elements = driver.find_elements(By.XPATH, xpath)
-                    
-                    # Look for available dates (ones that have "Times available" in aria-label)
-                    for element in date_elements:
-                        aria_label = element.get_attribute('aria-label') or ''
-                        if 'Times available' in aria_label or element.is_enabled():
-                            date_element = element
-                            successful_xpath = xpath
-                            break
-                    
-                    if date_element:
+            try:
+                # Try the most common pattern first
+                date_elements = driver.find_elements(
+                    By.XPATH, 
+                    f'//div[@aria-label="Date picker."]//div[@role="button" and text()="{preferred_day}"]'
+                )
+                
+                # Look for available dates quickly
+                for element in date_elements:
+                    aria_label = element.get_attribute('aria-label') or ''
+                    if 'Times available' in aria_label or element.is_enabled():
+                        date_element = element
                         break
                         
-                except Exception as e:
-                    print(f"XPath {xpath} failed: {e}")
-                    continue
+            except Exception:
+                pass
+            
+            # Only try fallback patterns if needed
+            if not date_element:
+                fallback_xpaths = [
+                    f'//div[contains(@aria-label, "Date picker")]//div[@role="button" and text()="{preferred_day}"]',
+                    f'//div[contains(@aria-label, "Date picker")]//div[text()="{preferred_day}"]'
+                ]
+                
+                for xpath in fallback_xpaths:
+                    try:
+                        date_elements = driver.find_elements(By.XPATH, xpath)
+                        for element in date_elements:
+                            aria_label = element.get_attribute('aria-label') or ''
+                            if 'Times available' in aria_label or element.is_enabled():
+                                date_element = element
+                                break
+                        if date_element:
+                            break
+                    except Exception:
+                        continue
             
             if date_element:
-                print(f"Found date element for day {preferred_day} using XPath: {successful_xpath}")
-                print(f"Date element aria-label: {date_element.get_attribute('aria-label')}")
-                
+                print(f"Found date element for day {preferred_day}")
                 # Click on the date
                 driver.execute_script("arguments[0].click();", date_element)
                 print(f"Clicked on date: day {preferred_day}")
                 
-                # Wait for the page to update after date selection
-                time.sleep(3)
-                
+                # Reduced wait time after date selection
+                time.sleep(1.5)
             else:
                 print(f"Could not find available date for day {preferred_day}")
-                print("Available dates in the date picker:")
-                
-                # Show available dates for debugging
-                try:
-                    all_date_buttons = driver.find_elements(By.XPATH, '//div[@aria-label="Date picker."]//div[@role="button"]')
-                    for btn in all_date_buttons:
-                        day_text = btn.text.strip()
-                        aria_label = btn.get_attribute('aria-label') or ''
-                        is_available = 'Times available' in aria_label
-                        print(f"  Day {day_text}: {'Available' if is_available else 'Not available'}")
-                except:
-                    print("  Could not retrieve available dates")
-                
                 return None
                 
         except TimeoutException:
@@ -458,52 +453,48 @@ def get_squash_court_times(driver, preferred_day: int, timeout: int = 30):
             return None
         
         print("Waiting for time picker to load...")
-        # Wait for the time picker div to be present
-        time_picker_div = WebDriverWait(driver, timeout).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, 'div[aria-label*="Time picker"]'))
-        )
-        
-        print("Time picker found, waiting for list items to load...")
-        # Wait for list items to be present within the time picker
-        WebDriverWait(driver, timeout).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, 'div[aria-label*="Time picker"] li, div[aria-label*="Time picker"] button, div[aria-label*="Time picker"] div[role="option"]'))
-        )
-        
-        # Give it a bit more time to ensure all items are loaded
-        time.sleep(3)
+        # Wait for the time picker with reduced timeout
+        try:
+            time_picker_div = WebDriverWait(driver, 8).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[aria-label*="Time picker"]'))
+            )
+            
+            # Wait for list items with shorter timeout
+            WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[aria-label*="Time picker"] li'))
+            )
+            
+            # Minimal wait for content to stabilize
+            time.sleep(1)
+            
+        except TimeoutException:
+            print("Time picker not loaded in time")
+            return None
         
         print("Extracting time slots...")
-        # Try to find list elements within the time picker
+        # Use the known working selector first
         time_slots = []
         
-        # Try different selectors for list items - prioritize the working selector
-        list_selectors = [
-            'div[aria-label*="Time picker"] li',  # Known working selector - finds 8 elements
-            'div[aria-label*="Time picker"] button',
-            'div[aria-label*="Time picker"] div[role="option"]',
-            'div[aria-label*="Time picker"] div[role="listitem"]',
-            'div[aria-label*="Time picker"] .time-slot',
-            'div[aria-label*="Time picker"] [data-time]'
-        ]
-        
-        for selector in list_selectors:
-            try:
-                elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                if elements:
-                    print(f"Found {len(elements)} elements using selector: {selector}")
-                    for element in elements:
-                        try:
+        try:
+            # Primary selector (known to work)
+            elements = driver.find_elements(By.CSS_SELECTOR, 'div[aria-label*="Time picker"] li')
+            
+            if elements:
+                print(f"Found {len(elements)} time slot elements")
+                for element in elements:
+                    try:
+                        text = element.text.strip()
+                        if text:  # Only process elements with text
                             time_slot_info = {
-                                'text': element.text.strip(),
+                                'text': text,
                                 'tag_name': element.tag_name,
                                 'is_enabled': element.is_enabled(),
                                 'is_displayed': element.is_displayed(),
                                 'attributes': {}
                             }
                             
-                            # Get common attributes
-                            common_attrs = ['class', 'id', 'data-time', 'aria-label', 'title', 'value']
-                            for attr in common_attrs:
+                            # Get only essential attributes
+                            for attr in ['class', 'aria-label']:
                                 try:
                                     value = element.get_attribute(attr)
                                     if value:
@@ -511,52 +502,41 @@ def get_squash_court_times(driver, preferred_day: int, timeout: int = 30):
                                 except:
                                     pass
                             
-                            if time_slot_info['text'] or time_slot_info['attributes']:
-                                time_slots.append(time_slot_info)
-                                
-                        except Exception as e:
-                            print(f"Error extracting info from element: {e}")
-                            continue
-                    
-                    if time_slots:
-                        break
+                            time_slots.append(time_slot_info)
+                    except Exception:
+                        continue
+            
+            # Only try fallback selectors if primary failed
+            if not time_slots:
+                fallback_selectors = [
+                    'div[aria-label*="Time picker"] button',
+                    'div[aria-label*="Time picker"] div[role="option"]'
+                ]
+                
+                for selector in fallback_selectors:
+                    try:
+                        elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                        if elements:
+                            for element in elements:
+                                text = element.text.strip()
+                                if text:
+                                    time_slots.append({
+                                        'text': text,
+                                        'tag_name': element.tag_name,
+                                        'is_enabled': element.is_enabled(),
+                                        'is_displayed': element.is_displayed(),
+                                        'attributes': {}
+                                    })
+                            break
+                    except Exception:
+                        continue
                         
-            except Exception as e:
-                print(f"Error with selector {selector}: {e}")
-                continue
-        
-        if not time_slots:
-            print("No time slots found, trying to get all clickable elements in time picker...")
-            # Fallback: get all clickable elements within the time picker
-            try:
-                all_elements = driver.find_elements(By.CSS_SELECTOR, 'div[aria-label*="Time picker"] *')
-                for element in all_elements:
-                    if element.is_displayed() and element.text.strip():
-                        time_slot_info = {
-                            'text': element.text.strip(),
-                            'tag_name': element.tag_name,
-                            'is_enabled': element.is_enabled(),
-                            'is_displayed': element.is_displayed(),
-                            'attributes': {}
-                        }
-                        
-                        # Get common attributes
-                        for attr in ['class', 'id', 'aria-label', 'title']:
-                            try:
-                                value = element.get_attribute(attr)
-                                if value:
-                                    time_slot_info['attributes'][attr] = value
-                            except:
-                                pass
-                        
-                        time_slots.append(time_slot_info)
-                        
-            except Exception as e:
-                print(f"Fallback extraction failed: {e}")
+        except Exception as e:
+            print(f"Error extracting time slots: {e}")
+            return None
         
         print(f"Successfully extracted {len(time_slots)} time slots")
-        
-        return time_slots
+        return time_slots if time_slots else None
         
     except TimeoutException:
         print(f"Timeout waiting for elements after {timeout} seconds")
