@@ -140,36 +140,7 @@ def fill_booking_form(driver, user_data: Dict[str, str] = None) -> bool:
             except Exception as e2:
                 print(f"❌ Error checking consent checkbox: {e}, {e2}")
         
-        # Click the Book button to submit the form
-        try:
-            book_button = driver.find_element(By.XPATH, "//button[@type='submit'][@aria-label='Book']")
-            book_button.click()
-            print("✅ Clicked 'Book' button to submit the booking!")
-            
-            # Wait a moment to see any confirmation or next page
-            time.sleep(3)
-            print("✅ Booking submission completed!")
-            
-        except Exception as e:
-            # Try alternative selectors for the book button
-            try:
-                book_button = driver.find_element(By.CLASS_NAME, "i9DXY")
-                book_button.click()
-                print("✅ Clicked 'Book' button to submit the booking!")
-                time.sleep(3)
-                print("✅ Booking submission completed!")
-            except Exception as e2:
-                try:
-                    book_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Book')]")
-                    book_button.click()
-                    print("✅ Clicked 'Book' button to submit the booking!")
-                    time.sleep(3)
-                    print("✅ Booking submission completed!")
-                except Exception as e3:
-                    print(f"❌ Error clicking Book button: {e}, {e2}, {e3}")
-                    print("⚠️ Form was filled but booking submission may have failed")
-        
-        print("✅ Form filling and submission process completed!")
+        print("✅ Form filling completed successfully!")
         return True
         
     except TimeoutException:
@@ -180,35 +151,95 @@ def fill_booking_form(driver, user_data: Dict[str, str] = None) -> bool:
         return False
 
 
-def get_squash_court_times(headless: bool = True, timeout: int = 30, interactive: bool = False) -> Optional[List[Dict[str, str]]]:
+def submit_booking_form(driver) -> bool:
     """
-    Navigate to the Caversam Park booking page, click on "Squash Court", 
-    wait for the time picker to load, and return all available time slots.
-    Optionally allow user to select and click on a specific time slot.
+    Submit the booking form by clicking the Book button.
+    
+    Args:
+        driver: Selenium WebDriver instance
+    
+    Returns:
+        bool: True if form was successfully submitted, False otherwise
+    """
+    try:
+        print("Submitting booking form...")
+        
+        # Click the Book button to submit the form
+        try:
+            book_button = driver.find_element(By.XPATH, "//button[@type='submit'][@aria-label='Book']")
+            book_button.click()
+            print("✅ Clicked 'Book' button to submit the booking!")
+            
+            # Wait a moment to see any confirmation or next page
+            time.sleep(3)
+            print("✅ Booking submission completed!")
+            return True
+            
+        except Exception as e:
+            # Try alternative selectors for the book button
+            try:
+                book_button = driver.find_element(By.CLASS_NAME, "i9DXY")
+                book_button.click()
+                print("✅ Clicked 'Book' button to submit the booking!")
+                time.sleep(3)
+                print("✅ Booking submission completed!")
+                return True
+            except Exception as e2:
+                try:
+                    book_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Book')]")
+                    book_button.click()
+                    print("✅ Clicked 'Book' button to submit the booking!")
+                    time.sleep(3)
+                    print("✅ Booking submission completed!")
+                    return True
+                except Exception as e3:
+                    print(f"❌ Error clicking Book button: {e}, {e2}, {e3}")
+                    print("⚠️ Form was filled but booking submission may have failed")
+                    return False
+                    
+    except Exception as e:
+        print(f"❌ Error submitting booking form: {e}")
+        return False
+
+
+def initialize_driver(headless: bool = True):
+    """
+    Initialize and configure Chrome WebDriver with optimal settings for web scraping.
     
     Args:
         headless (bool): Whether to run browser in headless mode
+    
+    Returns:
+        webdriver.Chrome: Configured Chrome WebDriver instance
+    """
+    # Configure Chrome options
+    chrome_options = Options()
+    if headless:
+        chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+    
+    # Initialize and return the driver
+    driver = webdriver.Chrome(options=chrome_options)
+    return driver
+
+
+def get_squash_court_times(driver, timeout: int = 30):
+    """
+    Navigate to the Caversam Park booking page, click on "Squash Court", 
+    wait for the time picker to load, and return all available time slots.
+    
+    Args:
+        driver: Pre-initialized Selenium WebDriver instance
         timeout (int): Maximum time to wait for elements (seconds)
-        interactive (bool): Whether to ask user to select a time slot to book
     
     Returns:
         List[Dict[str, str]]: List of time slots with their properties, or None if failed
     """
-    driver = None
     try:
-        # Configure Chrome options
-        chrome_options = Options()
-        if headless:
-            chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--window-size=1920,1080")
-        chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-        
-        # Initialize the driver
-        driver = webdriver.Chrome(options=chrome_options)
-        
         print("Navigating to booking page...")
         # Navigate to the booking page
         url = "https://outlook.office365.com/book/CaversamParkVillageAssociationMilestoneCentre@cpva.org.uk/?ismsaljsauthenabled=true"
@@ -350,16 +381,6 @@ def get_squash_court_times(headless: bool = True, timeout: int = 30, interactive
         
         print(f"Successfully extracted {len(time_slots)} time slots")
         
-        # Interactive mode: let user select a time slot to book
-        if interactive and time_slots:
-            selected_element = select_and_click_timeslot(driver, time_slots, timeout)
-            if selected_element:
-                print("Time slot successfully selected and clicked!")
-                # Keep browser open for a moment to see the result
-                time.sleep(5)
-            else:
-                print("No time slot was selected or click failed.")
-        
         return time_slots
         
     except TimeoutException:
@@ -368,10 +389,6 @@ def get_squash_court_times(headless: bool = True, timeout: int = 30, interactive
     except Exception as e:
         print(f"Error occurred: {e}")
         return None
-    finally:
-        if driver:
-            driver.quit()
-            print("Browser closed")
 
 
 def validate_slot_selection(driver, element) -> bool:
@@ -514,66 +531,87 @@ def validate_slot_selection(driver, element) -> bool:
         return False
 
 
-def select_and_click_timeslot(driver, time_slots: List[Dict[str, str]], timeout: int = 30) -> Optional[bool]:
+def display_available_time_slots(time_slots: List[Dict[str, str]]) -> None:
     """
-    Display available time slots to user, ask for selection, and click on the chosen slot.
+    Display available time slots to user.
+    
+    Args:
+        time_slots: List of extracted time slot dictionaries
+    """
+    print(f"\n=== Available Time Slots ({len(time_slots)}) ===")
+    available_slots = []
+    
+    for i, slot in enumerate(time_slots, 1):
+        text = slot.get('text', '').strip()
+        enabled = slot.get('is_enabled', False)
+        displayed = slot.get('is_displayed', False)
+        
+        if text and enabled and displayed:
+            available_slots.append((i, text, slot))
+            status = "✅ Available"
+        else:
+            status = "❌ Not available"
+        
+        print(f"{i}. {text or 'No text'} - {status}")
+    
+    if not available_slots:
+        print("No available time slots found for booking.")
+
+
+def validate_time_slot_choice(user_input: str, time_slots: List[Dict[str, str]]) -> Optional[int]:
+    """
+    Validate user input for time slot selection.
+    
+    Args:
+        user_input: User's input string
+        time_slots: List of extracted time slot dictionaries
+    
+    Returns:
+        int: Valid slot number (1-based), or None if invalid/cancelled
+    """
+    if user_input.lower() == 'cancel':
+        print("Booking cancelled by user.")
+        return None
+    
+    try:
+        slot_number = int(user_input)
+        if 1 <= slot_number <= len(time_slots):
+            # Check if the selected slot is available for booking
+            selected_slot = time_slots[slot_number - 1]
+            if selected_slot.get('is_enabled', False) and selected_slot.get('is_displayed', False):
+                return slot_number
+            else:
+                print(f"Selected time slot #{slot_number} is not available for booking.")
+                return None
+        else:
+            print(f"Invalid slot number. Please enter a number between 1 and {len(time_slots)}.")
+            return None
+    except ValueError:
+        print(f"Invalid input. Please enter a number between 1 and {len(time_slots)}.")
+        return None
+
+
+def select_and_click_timeslot(driver, time_slots: List[Dict[str, str]], slot_number: int, timeout: int = 30) -> Optional[bool]:
+    """
+    Click on the specified time slot.
     
     Args:
         driver: Selenium WebDriver instance
         time_slots: List of extracted time slot dictionaries
+        slot_number: The slot number (1-based) to select and click
         timeout: Maximum time to wait for elements (seconds)
     
     Returns:
         bool: True if time slot was successfully clicked, False otherwise
     """
     try:
-        # Display available time slots
-        print(f"\n=== Available Time Slots ({len(time_slots)}) ===")
-        available_slots = []
-        
-        for i, slot in enumerate(time_slots, 1):
-            text = slot.get('text', '').strip()
-            enabled = slot.get('is_enabled', False)
-            displayed = slot.get('is_displayed', False)
-            
-            if text and enabled and displayed:
-                available_slots.append((i, text, slot))
-                status = "✅ Available"
-            else:
-                status = "❌ Not available"
-            
-            print(f"{i}. {text or 'No text'} - {status}")
-        
-        if not available_slots:
-            print("No available time slots found for booking.")
+        # Validate slot number
+        if not (1 <= slot_number <= len(time_slots)):
+            print(f"Invalid slot number {slot_number}. Must be between 1 and {len(time_slots)}.")
             return False
         
-        # Ask user to select a time slot by number only
-        print(f"\nEnter the number (1-{len(time_slots)}) of the time slot you want to book:")
-        print("Type 'cancel' to exit without booking.")
-        
-        user_input = input("> ").strip()
-        
-        if user_input.lower() == 'cancel':
-            print("Booking cancelled by user.")
-            return False
-        
-        selected_slot = None
-        selected_index = None
-        
-        # Only match by number
-        try:
-            slot_number = int(user_input)
-            if 1 <= slot_number <= len(time_slots):
-                selected_slot = time_slots[slot_number - 1]
-                selected_index = slot_number - 1
-                print(f"Selected slot #{slot_number}: {selected_slot.get('text', 'No text')}")
-            else:
-                print(f"Invalid slot number. Please enter a number between 1 and {len(time_slots)}.")
-                return False
-        except ValueError:
-            print(f"Invalid input. Please enter a number between 1 and {len(time_slots)}.")
-            return False
+        selected_slot = time_slots[slot_number - 1]
+        print(f"Attempting to click on slot #{slot_number}: {selected_slot.get('text', 'No text')}")
         
         # Check if the selected slot is available for booking
         if not (selected_slot.get('is_enabled', False) and selected_slot.get('is_displayed', False)):
@@ -637,15 +675,6 @@ def select_and_click_timeslot(driver, time_slots: List[Dict[str, str]], timeout:
             # Wait a moment to see if any changes occur
             time.sleep(2)
             print("Time slot selection completed!")
-            
-            # Fill the booking form with user details
-            if fill_booking_form(driver):
-                print("✅ Booking form filled successfully!")
-                # Wait a bit to see the filled form
-                time.sleep(3)
-            else:
-                print("⚠️ Failed to fill booking form, but time slot was selected")
-            
             return True
         else:
             print("Failed to click on the selected time slot.")
@@ -656,40 +685,63 @@ def select_and_click_timeslot(driver, time_slots: List[Dict[str, str]], timeout:
         return False
 
 
-def print_time_slots(time_slots: List[Dict[str, str]]) -> None:
-    """
-    Pretty print the extracted time slots.
-    
-    Args:
-        time_slots: List of time slot dictionaries
-    """
-    if not time_slots:
-        print("No time slots to display")
-        return
-    
-    print(f"\n=== Found {len(time_slots)} Time Slots ===")
-    for i, slot in enumerate(time_slots, 1):
-        print(f"\n{i}. {slot.get('text', 'No text')}")
-        print(f"   Tag: {slot.get('tag_name', 'Unknown')}")
-        print(f"   Enabled: {slot.get('is_enabled', 'Unknown')}")
-        print(f"   Displayed: {slot.get('is_displayed', 'Unknown')}")
-        
-        if slot.get('attributes'):
-            print("   Attributes:")
-            for attr, value in slot['attributes'].items():
-                print(f"     {attr}: {value}")
-
-
 # Example usage
 if __name__ == "__main__":
     print("Starting squash court booking scraper...")
     
-    # Option 1: Just get time slots without booking
-    # print("\n=== Option 1: Get available time slots ===")
-    # slots = get_squash_court_times(headless=False, timeout=30, interactive=False)
-    # print_time_slots(slots)
+    print("\n=== Interactive booking ===")
     
-    # Option 2: Interactive booking (uncomment to use)
-    print("\n=== Option 2: Interactive booking ===")
-    slots = get_squash_court_times(headless=False, timeout=30, interactive=True)
+    # Step 1: Initialize the driver
+    driver = initialize_driver(headless=False)
+    
+    try:
+        # Step 2: Get time slots
+        time_slots = get_squash_court_times(driver, timeout=30)
+        
+        if time_slots:
+            # Step 3: Display available time slots
+            display_available_time_slots(time_slots)
+            
+            # Step 4: Get user input
+            print(f"\nEnter the number (1-{len(time_slots)}) of the time slot you want to book:")
+            print("Type 'cancel' to exit without booking.")
+            user_input = input("> ").strip()
+            
+            # Step 5: Validate user input
+            selected_slot_number = validate_time_slot_choice(user_input, time_slots)
+            
+            if selected_slot_number:
+                # Step 6: Click on the selected time slot
+                if select_and_click_timeslot(driver, time_slots, selected_slot_number, timeout=30):
+                    print("Time slot successfully selected and clicked!")
+                    
+                    # Step 7: Fill the booking form
+                    if fill_booking_form(driver):
+                        print("✅ Booking form filled successfully!")
+                        
+                        # Step 8: Submit the booking form
+                        if submit_booking_form(driver):
+                            print("✅ Booking completed successfully!")
+                        else:
+                            print("⚠️ Form was filled but submission may have failed")
+                        
+                        # Wait a bit to see the result
+                        time.sleep(5)
+                    else:
+                        print("⚠️ Failed to fill booking form, but time slot was selected")
+                        # Keep browser open for a moment to see the result
+                        time.sleep(5)
+                else:
+                    print("Failed to click on the selected time slot.")
+            else:
+                print("No valid time slot was selected or booking was cancelled.")
+        else:
+            print("Failed to get time slots.")
+            
+    finally:
+        # Always close the browser
+        if driver:
+            driver.quit()
+            print("Browser closed")
+    
     print("Booking session completed!")
