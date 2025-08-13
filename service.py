@@ -259,72 +259,81 @@ def submit_booking_form(driver) -> bool:
 
 def initialize_driver(headless: bool = True):
     """
-    Initialize and configure Chromium WebDriver with optimal settings for web scraping.
+    Initialize and configure Chromium WebDriver with optimal settings for speed.
     
     Args:
         headless (bool): Whether to run browser in headless mode
     
     Returns:
-        webdriver.Chrome: Configured Chromium WebDriver instance
+        webdriver.Chrome: Configured Chromium WebDriver instance optimized for speed
     """
-    # Configure Chromium options for Docker/Linux environment
+    # Configure Chromium options for maximum speed
     chrome_options = Options()
     
-    # Essential options for headless mode
+    # Essential headless options
     if headless:
-        chrome_options.add_argument("--headless=new")  # Use new headless mode
+        chrome_options.add_argument("--headless=new")
     
-    # Security and sandbox options (required for Docker)
+    # Critical performance options for speed
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--disable-software-rasterizer")
+    
+    # Speed-focused options
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-plugins")
+    chrome_options.add_argument("--disable-images")  # Don't load images for speed
+    chrome_options.add_argument("--disable-javascript")  # Disable JS for faster loading
+    chrome_options.add_argument("--disable-css")  # Disable CSS processing
+    chrome_options.add_argument("--disable-web-security")
+    chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+    
+    # Network and loading optimizations
+    chrome_options.add_argument("--disable-background-networking")
+    chrome_options.add_argument("--disable-default-apps")
+    chrome_options.add_argument("--disable-sync")
+    chrome_options.add_argument("--no-first-run")
     chrome_options.add_argument("--disable-background-timer-throttling")
     chrome_options.add_argument("--disable-backgrounding-occluded-windows")
     chrome_options.add_argument("--disable-renderer-backgrounding")
     
-    # Memory and performance options
+    # Memory and process optimizations
     chrome_options.add_argument("--memory-pressure-off")
-    chrome_options.add_argument("--max_old_space_size=4096")
-    chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("--disable-plugins")
-    
-    # Display options
-    chrome_options.add_argument("--window-size=1920,1080")
-    chrome_options.add_argument("--start-maximized")
-    chrome_options.add_argument("--disable-web-security")
-    
-    # User agent
-    chrome_options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-    
-    # Logging options
-    chrome_options.add_argument("--log-level=3")  # Suppress INFO, WARNING, ERROR
-    chrome_options.add_argument("--silent")
+    chrome_options.add_argument("--single-process")  # Use single process for speed
     chrome_options.add_argument("--disable-logging")
+    chrome_options.add_argument("--log-level=3")
+    chrome_options.add_argument("--silent")
     
-    # Additional stability options for containerized environments
-    chrome_options.add_argument("--disable-background-networking")
-    chrome_options.add_argument("--disable-default-apps")
-    chrome_options.add_argument("--disable-sync")
-    chrome_options.add_argument("--metrics-recording-only")
-    chrome_options.add_argument("--no-first-run")
-    chrome_options.add_argument("--safebrowsing-disable-auto-update")
-    chrome_options.add_argument("--disable-background-timer-throttling")
+    # Minimal window size for speed
+    chrome_options.add_argument("--window-size=800,600")
     
-    # Set Chromium binary location for Docker environment
+    # Faster user agent
+    chrome_options.add_argument("--user-agent=FastBot/1.0")
+    
+    # Set Chromium binary location
     chrome_options.binary_location = "/usr/bin/chromium"
     
-    # Initialize and return the driver
+    # Page load strategy for faster loading
+    chrome_options.add_argument("--page-load-strategy=eager")
+    
+    # Initialize driver with speed optimizations
     try:
         driver = webdriver.Chrome(options=chrome_options)
+        
+        # Set aggressive timeouts for faster operations
+        driver.implicitly_wait(1)  # Very short implicit wait
+        driver.set_page_load_timeout(10)  # Faster page load timeout
+        driver.set_script_timeout(5)   # Faster script timeout
+        
         return driver
     except Exception as e:
-        print(f"Error initializing Chromium driver: {e}")
+        print(f"Error initializing fast Chromium driver: {e}")
         print("Make sure Chromium and ChromeDriver are properly installed")
         raise
 
 
-def get_squash_court_times(driver, preferred_day: int, timeout: int = 20):
+def get_squash_court_times(driver, preferred_day: int, timeout: int = 12):
     """
     Navigate to the Caversam Park booking page, click on "Squash Court", 
     select the preferred date, and return all available time slots.
@@ -338,211 +347,153 @@ def get_squash_court_times(driver, preferred_day: int, timeout: int = 20):
         List[Dict[str, str]]: List of time slots with their properties, or None if failed
     """
     try:
-        print("Navigating to booking page...")
-        # Navigate to the booking page
+        print("🚀 Fast-loading booking page...")
         url = "https://outlook.office365.com/book/CaversamParkVillageAssociationMilestoneCentre@cpva.org.uk/?ismsaljsauthenabled=true"
         driver.get(url)
         
-        # Wait for page to load - reduced timeout for faster failure detection
-        WebDriverWait(driver, min(timeout, 15)).until(
-            EC.presence_of_element_located((By.TAG_NAME, "body"))
+        # Ultra-fast page ready check - just wait for any interactive element
+        WebDriverWait(driver, 8).until(
+            EC.any_of(
+                EC.element_to_be_clickable((By.XPATH, "//div[contains(text(), 'Squash Court')]")),
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
         )
         
-        print("Looking for 'Squash Court' button...")
-        # Use the known working selector first, with shorter timeout
+        # Immediate Squash Court click attempt
+        squash_court_element = None
         try:
-            squash_court_element = WebDriverWait(driver, 8).until(
-                EC.element_to_be_clickable((By.XPATH, "//div[contains(text(), 'Squash Court')]"))
-            )
-            print("Found 'Squash Court' element")
-        except TimeoutException:
-            # Only try fallback selectors if the primary one fails
-            fallback_selectors = [
-                "//button[contains(text(), 'Squash Court')]",
-                "//a[contains(text(), 'Squash Court')]",
-                "//span[contains(text(), 'Squash Court')]",
-                "//*[contains(text(), 'Squash Court')]"
-            ]
-            
-            squash_court_element = None
-            for selector in fallback_selectors:
-                try:
-                    squash_court_element = WebDriverWait(driver, 3).until(
-                        EC.element_to_be_clickable((By.XPATH, selector))
-                    )
-                    print(f"Found 'Squash Court' element using fallback selector")
-                    break
-                except TimeoutException:
-                    continue
-            
-            if not squash_court_element:
-                print("Could not find 'Squash Court' element")
+            # Try immediate click without extra waiting
+            squash_court_element = driver.find_element(By.XPATH, "//div[contains(text(), 'Squash Court')]")
+            if squash_court_element.is_displayed():
+                driver.execute_script("arguments[0].click();", squash_court_element)
+                print("⚡ Instant Squash Court click")
+            else:
+                raise Exception("Not visible")
+        except:
+            # Quick fallback with minimal wait
+            try:
+                squash_court_element = WebDriverWait(driver, 3).until(
+                    EC.element_to_be_clickable((By.XPATH, "//div[contains(text(), 'Squash Court')]"))
+                )
+                driver.execute_script("arguments[0].click();", squash_court_element)
+                print("⚡ Fast Squash Court click")
+            except:
+                print("❌ Squash Court element not found quickly")
                 return None
         
-        # Click on Squash Court
-        print("Clicking on 'Squash Court'...")
-        driver.execute_script("arguments[0].click();", squash_court_element)
+        # Aggressive date selection with minimal waiting
+        print(f"🎯 Quick date selection: {preferred_day}")
         
-        # Reduced wait time after click
-        time.sleep(1)
-        
-        print(f"Looking for date picker and selecting day {preferred_day}...")
+        # Don't wait for date picker - try immediate selection
+        date_element = None
         try:
-            # Wait for the date picker with shorter timeout
-            date_picker = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[aria-label="Date picker."]'))
+            # Immediate attempt without waiting
+            date_elements = driver.find_elements(
+                By.XPATH, 
+                f'//div[@aria-label="Date picker."]//div[@role="button" and text()="{preferred_day}"]'
             )
-            print("Date picker found")
             
-            # Optimized date selection - use the most likely working pattern first
-            date_element = None
+            for element in date_elements:
+                if element.is_displayed() and element.is_enabled():
+                    aria_label = element.get_attribute('aria-label') or ''
+                    if 'Times available' in aria_label:
+                        date_element = element
+                        break
+                        
+            if date_element:
+                driver.execute_script("arguments[0].click();", date_element)
+                print("⚡ Instant date click")
+            else:
+                raise Exception("Date not immediately available")
+                
+        except:
+            # Quick fallback with minimal wait
             try:
-                # Try the most common pattern first
+                # Wait just 2 seconds for date picker
+                WebDriverWait(driver, 2).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div[aria-label="Date picker."]'))
+                )
+                
                 date_elements = driver.find_elements(
                     By.XPATH, 
                     f'//div[@aria-label="Date picker."]//div[@role="button" and text()="{preferred_day}"]'
                 )
                 
-                # Look for available dates quickly
                 for element in date_elements:
                     aria_label = element.get_attribute('aria-label') or ''
                     if 'Times available' in aria_label or element.is_enabled():
-                        date_element = element
+                        driver.execute_script("arguments[0].click();", element)
+                        print("⚡ Fast date click")
                         break
-                        
-            except Exception:
-                pass
-            
-            # Only try fallback patterns if needed
-            if not date_element:
-                fallback_xpaths = [
-                    f'//div[contains(@aria-label, "Date picker")]//div[@role="button" and text()="{preferred_day}"]',
-                    f'//div[contains(@aria-label, "Date picker")]//div[text()="{preferred_day}"]'
-                ]
-                
-                for xpath in fallback_xpaths:
-                    try:
-                        date_elements = driver.find_elements(By.XPATH, xpath)
-                        for element in date_elements:
-                            aria_label = element.get_attribute('aria-label') or ''
-                            if 'Times available' in aria_label or element.is_enabled():
-                                date_element = element
-                                break
-                        if date_element:
-                            break
-                    except Exception:
-                        continue
-            
-            if date_element:
-                print(f"Found date element for day {preferred_day}")
-                # Click on the date
-                driver.execute_script("arguments[0].click();", date_element)
-                print(f"Clicked on date: day {preferred_day}")
-                
-                # Reduced wait time after date selection
-                time.sleep(1.5)
-            else:
-                print(f"Could not find available date for day {preferred_day}")
+                else:
+                    print(f"❌ Day {preferred_day} not available quickly")
+                    return None
+            except:
+                print("❌ Date picker loading too slow")
                 return None
-                
-        except TimeoutException:
-            print("Date picker not found or not loaded in time")
-            return None
-        except Exception as e:
-            print(f"Error selecting date: {e}")
-            return None
         
-        print("Waiting for time picker to load...")
-        # Wait for the time picker with reduced timeout
-        try:
-            time_picker_div = WebDriverWait(driver, 8).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[aria-label*="Time picker"]'))
-            )
-            
-            # Wait for list items with shorter timeout
-            WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[aria-label*="Time picker"] li'))
-            )
-            
-            # Minimal wait for content to stabilize
-            time.sleep(1)
-            
-        except TimeoutException:
-            print("Time picker not loaded in time")
-            return None
+        # Ultra-fast time slot extraction
+        print("⚡ Speed-extracting time slots...")
         
-        print("Extracting time slots...")
-        # Use the known working selector first
+        # Don't wait - try immediate extraction
         time_slots = []
+        max_attempts = 3  # Only try 3 times with very short waits
         
-        try:
-            # Primary selector (known to work)
-            elements = driver.find_elements(By.CSS_SELECTOR, 'div[aria-label*="Time picker"] li')
-            
-            if elements:
-                print(f"Found {len(elements)} time slot elements")
-                for element in elements:
-                    try:
+        for attempt in range(max_attempts):
+            try:
+                # Try immediate extraction
+                elements = driver.find_elements(By.CSS_SELECTOR, 'div[aria-label*="Time picker"] li')
+                
+                if elements:
+                    print(f"⚡ Found {len(elements)} slots on attempt {attempt + 1}")
+                    for element in elements:
                         text = element.text.strip()
-                        if text:  # Only process elements with text
-                            time_slot_info = {
+                        if text:
+                            time_slots.append({
                                 'text': text,
                                 'tag_name': element.tag_name,
                                 'is_enabled': element.is_enabled(),
                                 'is_displayed': element.is_displayed(),
                                 'attributes': {}
-                            }
-                            
-                            # Get only essential attributes
-                            for attr in ['class', 'aria-label']:
-                                try:
-                                    value = element.get_attribute(attr)
-                                    if value:
-                                        time_slot_info['attributes'][attr] = value
-                                except:
-                                    pass
-                            
-                            time_slots.append(time_slot_info)
-                    except Exception:
-                        continue
-            
-            # Only try fallback selectors if primary failed
-            if not time_slots:
-                fallback_selectors = [
-                    'div[aria-label*="Time picker"] button',
-                    'div[aria-label*="Time picker"] div[role="option"]'
-                ]
-                
-                for selector in fallback_selectors:
-                    try:
-                        elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                        if elements:
-                            for element in elements:
-                                text = element.text.strip()
-                                if text:
-                                    time_slots.append({
-                                        'text': text,
-                                        'tag_name': element.tag_name,
-                                        'is_enabled': element.is_enabled(),
-                                        'is_displayed': element.is_displayed(),
-                                        'attributes': {}
-                                    })
-                            break
-                    except Exception:
-                        continue
+                            })
+                    break
+                else:
+                    # Very short wait before retry
+                    if attempt < max_attempts - 1:
+                        time.sleep(0.5)
                         
-        except Exception as e:
-            print(f"Error extracting time slots: {e}")
+            except Exception as e:
+                if attempt < max_attempts - 1:
+                    time.sleep(0.5)
+                else:
+                    print(f"❌ Time slot extraction failed: {e}")
+                    
+        # Quick fallback if primary method failed
+        if not time_slots:
+            try:
+                elements = driver.find_elements(By.CSS_SELECTOR, 'div[aria-label*="Time picker"] button')
+                for element in elements:
+                    text = element.text.strip()
+                    if text:
+                        time_slots.append({
+                            'text': text,
+                            'tag_name': element.tag_name,
+                            'is_enabled': element.is_enabled(),
+                            'is_displayed': element.is_displayed(),
+                            'attributes': {}
+                        })
+            except:
+                pass
+        
+        if time_slots:
+            print(f"🎉 Speed-extracted {len(time_slots)} time slots")
+            return time_slots
+        else:
+            print("❌ No time slots found quickly")
             return None
         
-        print(f"Successfully extracted {len(time_slots)} time slots")
-        return time_slots if time_slots else None
-        
-    except TimeoutException:
-        print(f"Timeout waiting for elements after {timeout} seconds")
-        return None
     except Exception as e:
-        print(f"Error occurred: {e}")
+        print(f"❌ Fast execution failed: {e}")
         return None
 
 
