@@ -1,4 +1,5 @@
 import time
+import sys
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -13,7 +14,7 @@ default_user_data = {
     'first_and_surname': 'Oleksii Matiunin',
     'email': 'matalexnin@gmail.com',
     'address': '78 Curzon street, Reading, UK',
-    'phone_number': '07423624107',
+    'phone_number': '07423624106',
     'special_requests': 'Automated booking via Telegram bot',
     'membership_number': '8060',
     'opponent_name': '-'
@@ -151,6 +152,60 @@ def fill_booking_form(driver, user_data: Dict[str, str] = None) -> bool:
         return False
 
 
+def confirm_booking(preferred_day: int, selected_time_slot: Dict[str, str], user_data: Dict[str, str] = None) -> bool:
+    """
+    Display booking details and ask user for confirmation before submission.
+    
+    Args:
+        preferred_day (int): The selected day of the month
+        selected_time_slot: Dictionary containing the selected time slot info
+        user_data: Dictionary containing user details, defaults to default_user_data
+    
+    Returns:
+        bool: True if user confirms booking, False if cancelled
+    """
+    if user_data is None:
+        user_data = default_user_data
+    
+    print("\n" + "="*60)
+    print("🎾 BOOKING CONFIRMATION")
+    print("="*60)
+    
+    # Display booking details
+    print(f"📅 Date: Day {preferred_day} of current month")
+    print(f"⏰ Time Slot: {selected_time_slot.get('text', 'Unknown time')}")
+    print(f"🏟️  Court: Squash Court")
+    
+    print("\n👤 PERSONAL DETAILS:")
+    print("-" * 40)
+    print(f"Name: {user_data.get('first_and_surname', 'Not specified')}")
+    print(f"Email: {user_data.get('email', 'Not specified')}")
+    print(f"Phone: {user_data.get('phone_number', 'Not specified')}")
+    print(f"Address: {user_data.get('address', 'Not specified')}")
+    print(f"Membership #: {user_data.get('membership_number', 'Not specified')}")
+    print(f"Opponent: {user_data.get('opponent_name', 'Not specified')}")
+    
+    if user_data.get('special_requests'):
+        print(f"Special Requests: {user_data.get('special_requests')}")
+    
+    print("\n" + "="*60)
+    
+    # Ask for confirmation
+    while True:
+        print("\n❓ Do you want to proceed with this booking?")
+        print("Type 'yes' to confirm and submit, 'no' to cancel:")
+        confirmation = input("> ").strip().lower()
+        
+        if confirmation in ['yes', 'y', 'confirm']:
+            print("✅ Booking confirmed! Proceeding with submission...")
+            return True
+        elif confirmation in ['no', 'n', 'cancel']:
+            print("❌ Booking cancelled by user.")
+            return False
+        else:
+            print("Invalid input. Please type 'yes' to confirm or 'no' to cancel.")
+
+
 def submit_booking_form(driver) -> bool:
     """
     Submit the booking form by clicking the Book button.
@@ -227,13 +282,14 @@ def initialize_driver(headless: bool = True):
     return driver
 
 
-def get_squash_court_times(driver, timeout: int = 30):
+def get_squash_court_times(driver, preferred_day: int, timeout: int = 30):
     """
     Navigate to the Caversam Park booking page, click on "Squash Court", 
-    wait for the time picker to load, and return all available time slots.
+    select the preferred date, and return all available time slots.
     
     Args:
         driver: Pre-initialized Selenium WebDriver instance
+        preferred_day (int): Day of the month (1-31) for booking
         timeout (int): Maximum time to wait for elements (seconds)
     
     Returns:
@@ -281,6 +337,83 @@ def get_squash_court_times(driver, timeout: int = 30):
         
         # Wait a moment for any transitions
         time.sleep(2)
+        
+        print(f"Looking for date picker and selecting day {preferred_day}...")
+        # Look for the date picker and select the preferred day
+        try:
+            # Wait for the date picker to be present
+            date_picker = WebDriverWait(driver, timeout).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[aria-label="Date picker."]'))
+            )
+            print("Date picker found")
+            
+            # Look for the date element with the preferred day
+            date_selector = f'div[aria-label="Date picker."] div[role="button"]:contains("{preferred_day}")'
+            
+            # Since CSS :contains() is not supported, use XPath instead
+            date_xpath_patterns = [
+                f'//div[@aria-label="Date picker."]//div[@role="button" and text()="{preferred_day}"]',
+                f'//div[@aria-label="Date picker."]//div[@role="button"][text()="{preferred_day}"]',
+                f'//div[contains(@aria-label, "Date picker")]//div[@role="button" and text()="{preferred_day}"]',
+                f'//div[contains(@aria-label, "Date picker")]//div[text()="{preferred_day}"]'
+            ]
+            
+            date_element = None
+            successful_xpath = None
+            
+            for xpath in date_xpath_patterns:
+                try:
+                    date_elements = driver.find_elements(By.XPATH, xpath)
+                    
+                    # Look for available dates (ones that have "Times available" in aria-label)
+                    for element in date_elements:
+                        aria_label = element.get_attribute('aria-label') or ''
+                        if 'Times available' in aria_label or element.is_enabled():
+                            date_element = element
+                            successful_xpath = xpath
+                            break
+                    
+                    if date_element:
+                        break
+                        
+                except Exception as e:
+                    print(f"XPath {xpath} failed: {e}")
+                    continue
+            
+            if date_element:
+                print(f"Found date element for day {preferred_day} using XPath: {successful_xpath}")
+                print(f"Date element aria-label: {date_element.get_attribute('aria-label')}")
+                
+                # Click on the date
+                driver.execute_script("arguments[0].click();", date_element)
+                print(f"Clicked on date: day {preferred_day}")
+                
+                # Wait for the page to update after date selection
+                time.sleep(3)
+                
+            else:
+                print(f"Could not find available date for day {preferred_day}")
+                print("Available dates in the date picker:")
+                
+                # Show available dates for debugging
+                try:
+                    all_date_buttons = driver.find_elements(By.XPATH, '//div[@aria-label="Date picker."]//div[@role="button"]')
+                    for btn in all_date_buttons:
+                        day_text = btn.text.strip()
+                        aria_label = btn.get_attribute('aria-label') or ''
+                        is_available = 'Times available' in aria_label
+                        print(f"  Day {day_text}: {'Available' if is_available else 'Not available'}")
+                except:
+                    print("  Could not retrieve available dates")
+                
+                return None
+                
+        except TimeoutException:
+            print("Date picker not found or not loaded in time")
+            return None
+        except Exception as e:
+            print(f"Error selecting date: {e}")
+            return None
         
         print("Waiting for time picker to load...")
         # Wait for the time picker div to be present
@@ -685,6 +818,32 @@ def select_and_click_timeslot(driver, time_slots: List[Dict[str, str]], slot_num
         return False
 
 
+def get_user_preferred_day() -> Optional[int]:
+    """
+    Get user input for preferred booking day.
+    
+    Returns:
+        int: Valid day (1-31), or None if cancelled
+    """
+    while True:
+        print("\nEnter the day of the month you want to book (1-31):")
+        print("Type 'cancel' to exit without booking.")
+        user_input = input("> ").strip()
+        
+        if user_input.lower() == 'cancel':
+            print("Booking cancelled by user.")
+            return None
+        
+        try:
+            day = int(user_input)
+            if 1 <= day <= 31:
+                return day
+            else:
+                print("Invalid day. Please enter a number between 1 and 31.")
+        except ValueError:
+            print("Invalid input. Please enter a number between 1 and 31.")
+
+
 # Example usage
 if __name__ == "__main__":
     print("Starting squash court booking scraper...")
@@ -695,35 +854,49 @@ if __name__ == "__main__":
     driver = initialize_driver(headless=False)
     
     try:
-        # Step 2: Get time slots
-        time_slots = get_squash_court_times(driver, timeout=30)
+        # Step 2: Get preferred booking day from user
+        preferred_day = get_user_preferred_day()
+        
+        if not preferred_day:
+            print("No date selected. Exiting...")
+            sys.exit(0)
+        
+        print(f"Selected day: {preferred_day}")
+        
+        # Step 3: Get time slots for the selected day
+        time_slots = get_squash_court_times(driver, preferred_day, timeout=30)
         
         if time_slots:
-            # Step 3: Display available time slots
+            # Step 4: Display available time slots
             display_available_time_slots(time_slots)
             
-            # Step 4: Get user input
+            # Step 5: Get user input
             print(f"\nEnter the number (1-{len(time_slots)}) of the time slot you want to book:")
             print("Type 'cancel' to exit without booking.")
             user_input = input("> ").strip()
             
-            # Step 5: Validate user input
+            # Step 6: Validate user input
             selected_slot_number = validate_time_slot_choice(user_input, time_slots)
             
             if selected_slot_number:
-                # Step 6: Click on the selected time slot
+                # Step 7: Click on the selected time slot
                 if select_and_click_timeslot(driver, time_slots, selected_slot_number, timeout=30):
                     print("Time slot successfully selected and clicked!")
                     
-                    # Step 7: Fill the booking form
+                    # Step 8: Fill the booking form
                     if fill_booking_form(driver):
                         print("✅ Booking form filled successfully!")
                         
-                        # Step 8: Submit the booking form
-                        if submit_booking_form(driver):
-                            print("✅ Booking completed successfully!")
+                        # Step 9: Show booking confirmation and get user approval
+                        selected_time_slot = time_slots[selected_slot_number - 1]
+                        if confirm_booking(preferred_day, selected_time_slot):
+                            # Step 10: Submit the booking form
+                            if submit_booking_form(driver):
+                                print("✅ Booking completed successfully!")
+                            else:
+                                print("⚠️ Form was filled but submission may have failed")
                         else:
-                            print("⚠️ Form was filled but submission may have failed")
+                            print("❌ Booking cancelled during confirmation step")
                         
                         # Wait a bit to see the result
                         time.sleep(5)
