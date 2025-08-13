@@ -2,3 +2,5 @@ aiogram==3.21.0
 aiohttp
 selenium
 webdriver-manager
+fastapi
+uvicorn[standard]

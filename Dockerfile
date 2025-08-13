@@ -14,17 +14,24 @@ ENV CURL_CA_BUNDLE=""
 ENV REQUESTS_CA_BUNDLE=""
 ENV PYTHONUNBUFFERED=1
 
-# Upgrade pip and install certifi to latest
-RUN pip install --no-cache-dir --upgrade pip certifi
+# Create a non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Upgrade pip and install certifi to latest (suppress root warning)
+RUN pip install --no-cache-dir --upgrade --root-user-action=ignore pip certifi
 
 WORKDIR /app
 
 # Copy and install Python dependencies
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
 
-# Copy all project files
+# Copy all project files and set ownership
 COPY . .
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
 
 # Run the Python bot
 CMD ["python", "main.py"]
