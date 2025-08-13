@@ -117,7 +117,7 @@ class TelegramBot:
                 
                 try:
                     # Step 2: Get time slots for the selected day
-                    time_slots = get_squash_court_times(driver, preferred_day, timeout=30)
+                    time_slots = get_squash_court_times(driver, preferred_day, timeout=25)
                     
                     if time_slots:
                         # Step 3: Display available time slots
