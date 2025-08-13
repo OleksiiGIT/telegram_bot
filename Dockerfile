@@ -1,13 +1,15 @@
 FROM python:3.12-slim
 
-# Install system dependencies including Chrome
+# Install system dependencies including Chromium (alternative to Chrome)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     wget \
     gnupg \
     unzip \
-    # Chrome dependencies
+    chromium \
+    chromium-driver \
+    # Chrome/Chromium dependencies
     fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -30,12 +32,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Add Google Chrome repository and install Chrome
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable \
-    && rm -rf /var/lib/apt/lists/*
+# Verify Chromium installation
+RUN chromium --version
 
 # Set environment variables to disable SSL verification for development
 ENV PYTHONHTTPSVERIFY=0
@@ -67,10 +65,10 @@ RUN chown -R appuser:appuser /app
 # Switch to non-root user
 USER appuser
 
-# Set Chrome path for webdriver-manager
+# Set Chrome/Chromium path for webdriver-manager
 ENV PATH="/usr/bin:${PATH}"
 ENV DISPLAY=:99
-ENV CHROME_BIN=/usr/bin/google-chrome
+ENV CHROME_BIN=/usr/bin/chromium
 ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
 
 # Run the Python bot

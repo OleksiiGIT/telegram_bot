@@ -259,15 +259,15 @@ def submit_booking_form(driver) -> bool:
 
 def initialize_driver(headless: bool = True):
     """
-    Initialize and configure Chrome WebDriver with optimal settings for web scraping.
+    Initialize and configure Chromium WebDriver with optimal settings for web scraping.
     
     Args:
         headless (bool): Whether to run browser in headless mode
     
     Returns:
-        webdriver.Chrome: Configured Chrome WebDriver instance
+        webdriver.Chrome: Configured Chromium WebDriver instance
     """
-    # Configure Chrome options for Docker/Linux environment
+    # Configure Chromium options for Docker/Linux environment
     chrome_options = Options()
     
     # Essential options for headless mode
@@ -311,13 +311,16 @@ def initialize_driver(headless: bool = True):
     chrome_options.add_argument("--safebrowsing-disable-auto-update")
     chrome_options.add_argument("--disable-background-timer-throttling")
     
+    # Set Chromium binary location for Docker environment
+    chrome_options.binary_location = "/usr/bin/chromium"
+    
     # Initialize and return the driver
     try:
         driver = webdriver.Chrome(options=chrome_options)
         return driver
     except Exception as e:
-        print(f"Error initializing Chrome driver: {e}")
-        print("Make sure Chrome and ChromeDriver are properly installed")
+        print(f"Error initializing Chromium driver: {e}")
+        print("Make sure Chromium and ChromeDriver are properly installed")
         raise
 
 
