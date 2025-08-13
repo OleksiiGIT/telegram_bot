@@ -1,13 +1,19 @@
 import asyncio
 import logging
 import sys
+import os
 from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-token = '8445356732:AAF-19VhpFcwT2rUW81HOgry1yZ9RxY1QTY'
+# Get token from environment variable
+token = os.getenv('TELEGRAM_BOT_TOKEN')
+if not token:
+    print("Error: TELEGRAM_BOT_TOKEN environment variable is not set")
+    sys.exit(1)
+
 disp = Dispatcher()
 
 @disp.message(CommandStart())
