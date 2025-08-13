@@ -1,5 +1,3 @@
-import asyncio
-import logging
 import sys
 import os
 from aiogram import Bot, Dispatcher
@@ -29,5 +27,13 @@ class TelegramBot:
     async def start_polling(self):
         """Start the Telegram bot polling"""
         bot = Bot(token=self.token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+        
+        # Clear any existing webhooks and pending updates to avoid conflicts
+        try:
+            await bot.delete_webhook(drop_pending_updates=True)
+            print("Cleared webhooks and pending updates")
+        except Exception as e:
+            print(f"Warning: Could not clear webhooks: {e}")
+        
         print("Starting Telegram bot polling...")
-        await self.disp.start_polling(bot)
+        await self.disp.start_polling(bot, skip_updates=True)
