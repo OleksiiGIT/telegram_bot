@@ -1,0 +1,23 @@
+{
+  "name": "telegram-bot",
+  "version": "1.0.0",
+  "description": "A simple Telegram bot with SSL verification disabled for development",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "telegraf": "^4.15.6",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": ["telegram", "bot", "nodejs"],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
