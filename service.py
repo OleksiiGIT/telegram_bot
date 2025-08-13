@@ -267,19 +267,58 @@ def initialize_driver(headless: bool = True):
     Returns:
         webdriver.Chrome: Configured Chrome WebDriver instance
     """
-    # Configure Chrome options
+    # Configure Chrome options for Docker/Linux environment
     chrome_options = Options()
+    
+    # Essential options for headless mode
     if headless:
-        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--headless=new")  # Use new headless mode
+    
+    # Security and sandbox options (required for Docker)
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-software-rasterizer")
+    chrome_options.add_argument("--disable-background-timer-throttling")
+    chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+    chrome_options.add_argument("--disable-renderer-backgrounding")
+    
+    # Memory and performance options
+    chrome_options.add_argument("--memory-pressure-off")
+    chrome_options.add_argument("--max_old_space_size=4096")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-plugins")
+    
+    # Display options
     chrome_options.add_argument("--window-size=1920,1080")
-    chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+    chrome_options.add_argument("--start-maximized")
+    chrome_options.add_argument("--disable-web-security")
+    
+    # User agent
+    chrome_options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+    
+    # Logging options
+    chrome_options.add_argument("--log-level=3")  # Suppress INFO, WARNING, ERROR
+    chrome_options.add_argument("--silent")
+    chrome_options.add_argument("--disable-logging")
+    
+    # Additional stability options for containerized environments
+    chrome_options.add_argument("--disable-background-networking")
+    chrome_options.add_argument("--disable-default-apps")
+    chrome_options.add_argument("--disable-sync")
+    chrome_options.add_argument("--metrics-recording-only")
+    chrome_options.add_argument("--no-first-run")
+    chrome_options.add_argument("--safebrowsing-disable-auto-update")
+    chrome_options.add_argument("--disable-background-timer-throttling")
     
     # Initialize and return the driver
-    driver = webdriver.Chrome(options=chrome_options)
-    return driver
+    try:
+        driver = webdriver.Chrome(options=chrome_options)
+        return driver
+    except Exception as e:
+        print(f"Error initializing Chrome driver: {e}")
+        print("Make sure Chrome and ChromeDriver are properly installed")
+        raise
 
 
 def get_squash_court_times(driver, preferred_day: int, timeout: int = 30):

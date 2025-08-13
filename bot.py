@@ -1,6 +1,5 @@
 import sys
 import os
-import asyncio
 from aiogram import Bot, Dispatcher, html
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
@@ -10,11 +9,8 @@ from aiogram import F
 from service import (
     initialize_driver,
     get_squash_court_times,
-    display_available_time_slots,
-    validate_time_slot_choice,
     select_and_click_timeslot,
     fill_booking_form,
-    confirm_booking,
     submit_booking_form
 )
 
@@ -180,9 +176,19 @@ class TelegramBot:
                         driver.quit()
                         
             except Exception as e:
-                await message.answer(f"❌ <b>Booking Error:</b>\n\n"
-                                   f"An error occurred during booking: {str(e)}\n\n"
-                                   f"Please try again later.")
+                error_message = str(e)
+                if "chromedriver" in error_message.lower():
+                    await message.answer("❌ <b>Browser Error:</b>\n\n"
+                                       "Chrome browser is not properly configured on this server.\n"
+                                       "Please contact the administrator to install Chrome dependencies.")
+                elif "permission denied" in error_message.lower():
+                    await message.answer("❌ <b>Permission Error:</b>\n\n"
+                                       "Server doesn't have proper permissions to run Chrome browser.\n"
+                                       "Please contact the administrator.")
+                else:
+                    await message.answer(f"❌ <b>Booking Error:</b>\n\n"
+                                       f"An error occurred during booking: {error_message}\n\n"
+                                       f"Please try again later.")
     
     async def start_polling(self):
         """Start the Telegram bot polling"""
